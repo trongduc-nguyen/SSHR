@@ -15,19 +15,60 @@ venv/
 
 # =========================
 # Checkpoints & weights
+# Keep directory shells for repository upload.
 # =========================
-checkpoints/
+checkpoints/*
+!checkpoints/.gitkeep
+init_weights/*
+!init_weights/.gitkeep
 *.pth
 *.pt
 *.ckpt
 *.params
 
-
-init_weights/
 # =========================
-# Datasets (ignore raw data)
+# Datasets
+# Keep dataset directory shells, ignore raw data and generated outputs.
 # =========================
-datasets/
+datasets/**
+!datasets/
+!datasets/.gitkeep
+!datasets/BCSS-WSSS/
+!datasets/BCSS-WSSS/.gitkeep
+!datasets/BCSS-WSSS/training/
+!datasets/BCSS-WSSS/training/.gitkeep
+!datasets/BCSS-WSSS/val/
+!datasets/BCSS-WSSS/val/.gitkeep
+!datasets/BCSS-WSSS/val/img/
+!datasets/BCSS-WSSS/val/img/.gitkeep
+!datasets/BCSS-WSSS/val/mask/
+!datasets/BCSS-WSSS/val/mask/.gitkeep
+!datasets/BCSS-WSSS/test/
+!datasets/BCSS-WSSS/test/.gitkeep
+!datasets/BCSS-WSSS/test/img/
+!datasets/BCSS-WSSS/test/img/.gitkeep
+!datasets/BCSS-WSSS/test/mask/
+!datasets/BCSS-WSSS/test/mask/.gitkeep
+!datasets/LUAD-HistoSeg/
+!datasets/LUAD-HistoSeg/.gitkeep
+!datasets/LUAD-HistoSeg/training/
+!datasets/LUAD-HistoSeg/training/.gitkeep
+!datasets/LUAD-HistoSeg/val/
+!datasets/LUAD-HistoSeg/val/.gitkeep
+!datasets/LUAD-HistoSeg/val/img/
+!datasets/LUAD-HistoSeg/val/img/.gitkeep
+!datasets/LUAD-HistoSeg/val/mask/
+!datasets/LUAD-HistoSeg/val/mask/.gitkeep
+!datasets/LUAD-HistoSeg/test/
+!datasets/LUAD-HistoSeg/test/.gitkeep
+!datasets/LUAD-HistoSeg/test/img/
+!datasets/LUAD-HistoSeg/test/img/.gitkeep
+!datasets/LUAD-HistoSeg/test/mask/
+!datasets/LUAD-HistoSeg/test/mask/.gitkeep
+datasets/**/miou_out/
+datasets/**/pred/
+datasets/**/pred_palette/
+datasets/__MACOSX/
 
 # =========================
 # Large feature files

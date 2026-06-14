@@ -211,7 +211,7 @@ def train_phase(args):
 
         
     os.makedirs(args.save_folder, exist_ok=True)
-    torch.save(model.state_dict(), os.path.join(args.save_folder, 'stage1_cais_last.pth'))
+    torch.save(model.state_dict(), os.path.join(args.save_folder, 'stage1_last.pth'))
 
 
 def test_phase(args):
@@ -227,16 +227,16 @@ def test_phase(args):
 if __name__ == '__main__': 
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=20, type=int)
-    parser.add_argument("--max_epoches", default=25, type=int)
+    parser.add_argument("--max_epoches", default=1, type=int)
     parser.add_argument("--network", default="network.resnet38_cls", type=str)
     parser.add_argument("--lr", default=0.01, type=float)
     parser.add_argument("--num_workers", default=8, type=int)
     parser.add_argument("--wt_dec", default=5e-4, type=float)
     parser.add_argument("--n_class", default=4, type=int)
     parser.add_argument("--weights", default='init_weights/ilsvrc-cls_rna-a1_cls1000_ep-0001.params', type=str)
-    parser.add_argument("--trainroot", default='datasets/LUAD/train/', type=str)
-    parser.add_argument("--testroot", default='datasets/LUAD/test/', type=str)
-    parser.add_argument("--valroot", default='datasets/LUAD/val/', type=str)
+    parser.add_argument("--trainroot", default='datasets/LUAD-HistoSeg/training/', type=str)
+    parser.add_argument("--testroot", default='datasets/LUAD-HistoSeg/test/', type=str)
+    parser.add_argument("--valroot", default='datasets/LUAD-HistoSeg/val/', type=str)
 
     parser.add_argument("--dataset", default='luad', type=str)
     parser.add_argument("--img_size", default=224, type=int)
