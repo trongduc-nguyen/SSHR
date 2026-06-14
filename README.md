@@ -16,7 +16,7 @@ Experiments on the LUAD-HistoSeg and BCSS datasets demonstrate that SSHR outperf
 
 ## Framework
 
-![Framework](main_flow.png)
+![Framework](assets/main_flow.png)
 
 ## Directory Structure
 
