@@ -43,7 +43,6 @@ SSHR/
 └── checkpoints/               # training checkpoints, ignored by git
 ```
 
-The directory shells are committed with `.gitkeep` files. Raw datasets, pretrained weights, generated checkpoints, predictions, and metric outputs are ignored by git.
 
 ## Usage
 
