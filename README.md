@@ -1,6 +1,8 @@
 # Single-Stage Hierarchical Rectification for Weakly Supervised Histopathology Segmentation (MICCAI 2026)
 
 ## Abstract
+  <details>
+  <summary>Click to expand</summary>
 
 Existing weakly supervised semantic segmentation (WSSS) methods in computational pathology rely on a multi-stage paradigm: class activation map (CAM) generation, offline pseudo-mask refinement, and fully supervised retraining. While established, this decoupled approach presents fundamental limitations. The multi-stage process not only incurs high computational training costs but also suffers from error propagation: local texture biases in shallow CNN layers generate false-positive artifacts that subsequent refinement steps often fail to correct.
 
@@ -9,6 +11,8 @@ To address these persistent challenges through a simple yet highly effective app
 Experiments on the LUAD-HistoSeg and BCSS datasets demonstrate that SSHR outperforms state-of-the-art multi-stage methods. Furthermore, SSHR reduces training duration by 2 to 5 times. This efficiency minimizes computational overhead and accelerates clinical translation for large-scale histopathology workflows.
 
 **Keywords:** Weakly supervised learning, semantic segmentation, computational pathology, single-stage learning.
+
+  </details>
 
 ## Framework
 
@@ -69,7 +73,7 @@ conda create -n sshr python=3.10 -y
 conda activate sshr
 pip install -r requirements.txt
 pip install mxnet==1.9.1
-pip install numpy== 1.23.5
+pip install numpy==1.23.5
 ```
 
 
