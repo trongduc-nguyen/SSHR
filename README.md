@@ -16,7 +16,10 @@ Experiments on the LUAD-HistoSeg and BCSS datasets demonstrate that SSHR outperf
 
 ## Framework
 
-![Framework](assets/main_flow.png)
+
+<p align="center">
+  <img src="assets/main_flow.png" width="700" alt="WaveDiT architecture">
+</p>
 
 ## Directory Structure
 
