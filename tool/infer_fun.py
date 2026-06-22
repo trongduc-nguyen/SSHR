@@ -13,7 +13,7 @@ import cv2
 from tool import infer_utils
 from tool.GenDataset import Stage1_InferDataset
 from torchvision import transforms
-def infer(model, dataroot, n_class, args, thr=None):
+def infer(model, dataroot, n_class, args, thr=None, cam_weights=None):
     model.eval()
     model = model.cuda()
     cam_list = []
@@ -31,6 +31,8 @@ def infer(model, dataroot, n_class, args, thr=None):
     if thr is None:
         if args.dataset == 'luad': thr = 0.2
         elif args.dataset == 'bcss': thr = 0.5
+    if cam_weights is None:
+        cam_weights = (0.6, 0.2, 0.2)
             
     try:
         for iter, (img_name_tuple, img_tensor ) in enumerate(infer_data_loader):
@@ -46,8 +48,10 @@ def infer(model, dataroot, n_class, args, thr=None):
                     
                     cam_56, cam_28_1, cam_28_2, cam_deep, y = model.forward_cam(img)
                     
-                    y = y.cpu().detach().numpy().tolist()[0]
+                    y = np.asarray(y.cpu().detach().numpy().tolist()[0])
                     label = torch.tensor([1.0 if j > thr else 0.0 for j in y])
+                    if label.sum() == 0:
+                        label[int(np.argmax(y))] = 1.0
                     
                     c_56 = F.interpolate(cam_56, orig_img_size, mode='bilinear', align_corners=False)[0]
                     c_28_1 = F.interpolate(cam_28_1, orig_img_size, mode='bilinear', align_corners=False)[0]
@@ -63,7 +67,7 @@ def infer(model, dataroot, n_class, args, thr=None):
                     n_28_1 = norm_np(c_28_1.cpu().numpy())
                     n_28_2 = norm_np(c_28_2.cpu().numpy())
                     cam_deep = norm_np(cam_deep.cpu().numpy())
-                    cam =    0.6 * n_28_1 + 0.2 * n_28_2 + 0.2 * cam_deep  
+                    cam = cam_weights[0] * n_28_1 + cam_weights[1] * n_28_2 + cam_weights[2] * cam_deep
                     cam = cam * label.clone().view(n_class, 1, 1).numpy()
                     return cam, label
 
