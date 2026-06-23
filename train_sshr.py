@@ -297,130 +297,10 @@ def test_phase(args, dataroot=None, split_name='test', checkpoint_path=None, sta
     print(f'[{split_name}] {score}', flush=True)
     return score
 
-def parse_batch_choices(value):
-    if value is None or value == '':
-        return None
-    return [int(item.strip()) for item in value.split(',') if item.strip()]
-
-def parse_int_choices(value):
-    if value is None or value == '':
-        return None
-    return [int(item.strip()) for item in value.split(',') if item.strip()]
-
-def run_optuna(args):
-    try:
-        import optuna
-    except ImportError as exc:
-        raise ImportError("Optuna is required for --optuna_trials. Install it with: pip install optuna") from exc
-
-    base_save_folder = args.save_folder
-    batch_choices = parse_batch_choices(args.optuna_batch_choices)
-
-    def objective(trial):
-        trial_args = argparse.Namespace(**vars(args))
-        trial_args.optuna_trials = 0
-        trial_args.save_folder = os.path.join(base_save_folder, f'optuna_trial_{trial.number:04d}')
-        trial_args.eval_every = max(1, args.eval_every)
-        trial_args.save_checkpoints = False
-
-        trial_args.lr = trial.suggest_float('lr', args.optuna_lr_low, args.optuna_lr_high, log=True)
-        trial_args.wt_dec = trial.suggest_float('wt_dec', args.optuna_wt_dec_low, args.optuna_wt_dec_high, log=True)
-        if batch_choices:
-            trial_args.batch_size = trial.suggest_categorical('batch_size', batch_choices)
-        img_size_choices = parse_int_choices(args.optuna_img_size_choices)
-        if img_size_choices:
-            trial_args.img_size = trial.suggest_categorical('img_size', img_size_choices)
-
-        train_cls_thr_high = min(args.optuna_train_cls_thr_high, 0.5) if args.dataset == 'luad' else args.optuna_train_cls_thr_high
-        infer_thr_high = min(args.optuna_thr_high, 0.5) if args.dataset == 'luad' else args.optuna_thr_high
-        trial_args.train_cls_thr = trial.suggest_float('train_cls_thr', args.optuna_train_cls_thr_low, train_cls_thr_high)
-        trial_args.infer_thr = trial.suggest_float('infer_thr', args.optuna_thr_low, infer_thr_high)
-
-        raw_w_28_1 = trial.suggest_float('cam_w_28_1_raw', args.optuna_cam_weight_low, args.optuna_cam_weight_high)
-        raw_w_28_2 = trial.suggest_float('cam_w_28_2_raw', args.optuna_cam_weight_low, args.optuna_cam_weight_high)
-        raw_w_deep = trial.suggest_float('cam_w_deep_raw', args.optuna_cam_weight_low, args.optuna_cam_weight_high)
-        raw_sum = raw_w_28_1 + raw_w_28_2 + raw_w_deep
-        trial_args.cam_w_28_1 = raw_w_28_1 / raw_sum
-        trial_args.cam_w_28_2 = raw_w_28_2 / raw_sum
-        trial_args.cam_w_deep = raw_w_deep / raw_sum
-
-        raw_loss_w_56 = trial.suggest_float('loss_w_56_raw', args.optuna_loss_weight_low, args.optuna_loss_weight_high)
-        raw_loss_w_28_1 = trial.suggest_float('loss_w_28_1_raw', args.optuna_loss_weight_low, args.optuna_loss_weight_high)
-        raw_loss_w_28_2 = trial.suggest_float('loss_w_28_2_raw', args.optuna_loss_weight_low, args.optuna_loss_weight_high)
-        raw_loss_w_deep = trial.suggest_float('loss_w_deep_raw', args.optuna_loss_weight_low, args.optuna_loss_weight_high)
-        raw_loss_sum = raw_loss_w_56 + raw_loss_w_28_1 + raw_loss_w_28_2 + raw_loss_w_deep
-        trial_args.loss_w_56 = raw_loss_w_56 / raw_loss_sum
-        trial_args.loss_w_28_1 = raw_loss_w_28_1 / raw_loss_sum
-        trial_args.loss_w_28_2 = raw_loss_w_28_2 / raw_loss_sum
-        trial_args.loss_w_deep = raw_loss_w_deep / raw_loss_sum
-
-        result = train_phase(trial_args)
-        best_val_miou = result.get('best_val_miou')
-        if best_val_miou is None:
-            return float('-inf')
-        trial.set_user_attr('cam_w_28_1', trial_args.cam_w_28_1)
-        trial.set_user_attr('cam_w_28_2', trial_args.cam_w_28_2)
-        trial.set_user_attr('cam_w_deep', trial_args.cam_w_deep)
-        trial.set_user_attr('loss_w_56', trial_args.loss_w_56)
-        trial.set_user_attr('loss_w_28_1', trial_args.loss_w_28_1)
-        trial.set_user_attr('loss_w_28_2', trial_args.loss_w_28_2)
-        trial.set_user_attr('loss_w_deep', trial_args.loss_w_deep)
-        trial.set_user_attr('effective_params', {
-            'batch_size': trial_args.batch_size,
-            'img_size': trial_args.img_size,
-            'lr': trial_args.lr,
-            'wt_dec': trial_args.wt_dec,
-            'train_cls_thr': trial_args.train_cls_thr,
-            'infer_thr': trial_args.infer_thr,
-            'cam_w_28_1': trial_args.cam_w_28_1,
-            'cam_w_28_2': trial_args.cam_w_28_2,
-            'cam_w_deep': trial_args.cam_w_deep,
-            'loss_w_56': trial_args.loss_w_56,
-            'loss_w_28_1': trial_args.loss_w_28_1,
-            'loss_w_28_2': trial_args.loss_w_28_2,
-            'loss_w_deep': trial_args.loss_w_deep,
-        })
-        trial.set_user_attr('eval_history', result.get('eval_history', []))
-        trial_log = {
-            'trial': trial.number,
-            'value': best_val_miou,
-            'params': trial.params,
-            'user_attrs': trial.user_attrs,
-        }
-        os.makedirs(base_save_folder, exist_ok=True)
-        with open(os.path.join(base_save_folder, 'optuna_trials.jsonl'), 'a') as f:
-            f.write(json.dumps(trial_log, sort_keys=True) + '\n')
-        print('[Optuna Trial]', json.dumps(trial_log, sort_keys=True), flush=True)
-        return best_val_miou
-
-    sampler = optuna.samplers.TPESampler(seed=args.seed)
-    study = optuna.create_study(
-        study_name=args.optuna_study_name,
-        storage=args.optuna_storage,
-        direction=args.optuna_direction,
-        sampler=sampler,
-        load_if_exists=True,
-    )
-    study.optimize(objective, n_trials=args.optuna_trials, timeout=args.optuna_timeout)
-
-    best = {
-        'best_trial': study.best_trial.number,
-        'best_value': study.best_value,
-        'best_params': study.best_params,
-        'best_user_attrs': study.best_trial.user_attrs,
-    }
-    os.makedirs(base_save_folder, exist_ok=True)
-    best_path = os.path.join(base_save_folder, 'optuna_best.json')
-    with open(best_path, 'w') as f:
-        json.dump(best, f, indent=2, sort_keys=True)
-    print('[Optuna Best]', json.dumps(best, sort_keys=True), flush=True)
-    print(f'[Optuna] Best trial summary saved to {best_path}', flush=True)
-    return study
-
 if __name__ == '__main__': 
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=20, type=int)
-    parser.add_argument("--max_epoches", default=25, type=int)
+    parser.add_argument("--max_epoches", default=None, type=int)
     parser.add_argument("--network", default="network.resnet38_cls", type=str)
     parser.add_argument("--lr", default=0.01, type=float)
     parser.add_argument("--num_workers", default=8, type=int)
@@ -449,35 +329,19 @@ if __name__ == '__main__':
     parser.add_argument("--train_cls_thr", default=0.2, type=float)
     parser.add_argument("--save_checkpoints", "--save-checkpoints", dest="save_checkpoints", action="store_true", default=True)
     parser.add_argument("--no-save_checkpoints", "--no-save-checkpoints", dest="save_checkpoints", action="store_false")
-    parser.add_argument("--save_last_k_checkpoints", "--save-last-k-checkpoints", default=0, type=int)
-
-    parser.add_argument("--optuna_trials", default=0, type=int)
-    parser.add_argument("--optuna_study_name", default='sshr_optuna', type=str)
-    parser.add_argument("--optuna_storage", default=None, type=str)
-    parser.add_argument("--optuna_direction", default='maximize', choices=['maximize', 'minimize'])
-    parser.add_argument("--optuna_timeout", default=None, type=int)
-    parser.add_argument("--optuna_batch_choices", default='20,32,64', type=str)
-    parser.add_argument("--optuna_img_size_choices", default='224,256,320', type=str)
-    parser.add_argument("--optuna_lr_low", default=1e-5, type=float)
-    parser.add_argument("--optuna_lr_high", default=5e-2, type=float)
-    parser.add_argument("--optuna_wt_dec_low", default=1e-7, type=float)
-    parser.add_argument("--optuna_wt_dec_high", default=1e-2, type=float)
-    parser.add_argument("--optuna_thr_low", default=0.05, type=float)
-    parser.add_argument("--optuna_thr_high", default=0.5, type=float)
-    parser.add_argument("--optuna_train_cls_thr_low", default=0.05, type=float)
-    parser.add_argument("--optuna_train_cls_thr_high", default=0.5, type=float)
-    parser.add_argument("--optuna_cam_weight_low", default=0.01, type=float)
-    parser.add_argument("--optuna_cam_weight_high", default=1.0, type=float)
-    parser.add_argument("--optuna_loss_weight_low", default=0.01, type=float)
-    parser.add_argument("--optuna_loss_weight_high", default=1.0, type=float)
-
+    parser.add_argument("--save_last_k_checkpoints", "--save-last-k-checkpoints", default=5, type=int)
     args = parser.parse_args()
+
+    if args.max_epoches is None:
+        if args.dataset == "luad":
+            args.max_epoches = 21
+        elif args.dataset == "bcss":
+            args.max_epoches = 9
+        else:
+            raise ValueError(f"Unsupported dataset for default epochs: {args.dataset}")
 
     os.makedirs(args.save_folder, exist_ok=True)
     
     start_time = time.time()
-    if args.optuna_trials > 0:
-        run_optuna(args)
-    else:
-        train_phase(args)
+    train_phase(args)
     print(f"Total Training Time: {time.time() - start_time - time_test:.2f}s")
