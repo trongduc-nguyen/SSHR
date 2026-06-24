@@ -30,7 +30,7 @@ def infer(model, dataroot, n_class, args, thr=None, cam_weights=None):
 
     if thr is None:
         if args.dataset == 'luad': thr = 0.2
-        elif args.dataset == 'bcss': thr = 0.5
+        elif args.dataset == 'bcss': thr = 0.8
     if cam_weights is None:
         cam_weights = (0.6, 0.2, 0.2)
             
