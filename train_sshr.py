@@ -300,7 +300,7 @@ def test_phase(args, dataroot=None, split_name='test', checkpoint_path=None, sta
 if __name__ == '__main__': 
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=20, type=int)
-    parser.add_argument("--max_epoches", default=None, type=int)
+    parser.add_argument("--max_epoches", default=21, type=int)
     parser.add_argument("--network", default="network.resnet38_cls", type=str)
     parser.add_argument("--lr", default=0.01, type=float)
     parser.add_argument("--num_workers", default=8, type=int)
@@ -331,15 +331,6 @@ if __name__ == '__main__':
     parser.add_argument("--no-save_checkpoints", "--no-save-checkpoints", dest="save_checkpoints", action="store_false")
     parser.add_argument("--save_last_k_checkpoints", "--save-last-k-checkpoints", default=5, type=int)
     args = parser.parse_args()
-
-    if args.max_epoches is None:
-        if args.dataset == "luad":
-            args.max_epoches = 21
-        elif args.dataset == "bcss":
-            args.max_epoches = 9
-        else:
-            raise ValueError(f"Unsupported dataset for default epochs: {args.dataset}")
-
     os.makedirs(args.save_folder, exist_ok=True)
     
     start_time = time.time()
