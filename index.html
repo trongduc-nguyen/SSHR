@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SSHR | Weakly Supervised Histopathology Segmentation</title>
+    <meta name="description" content="Single-Stage Hierarchical Rectification for Weakly Supervised Histopathology Segmentation." />
+    <meta property="og:title" content="SSHR" />
+    <meta property="og:description" content="Single-Stage Hierarchical Rectification for Weakly Supervised Histopathology Segmentation." />
+    <meta property="og:type" content="website" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="assets/css/custom.css" />
+    <link rel="preload" as="image" href="assets/images/framework.png" />
+    <link rel="preload" as="image" href="assets/images/qualitative.png" />
+  </head>
+  <body>
+    <main class="container">
+      <nav class="toc-sidebar" aria-label="Table of contents">
+        <p class="toc-title">Contents</p>
+        <a href="#overview" class="toc-link">Overview</a>
+        <a href="#method" class="toc-link">Method</a>
+        <a href="#contributions" class="toc-link">Contributions</a>
+        <a href="#results" class="toc-link">Results</a>
+        <a href="#ablation" class="toc-link">Ablation</a>
+        <a href="#efficiency" class="toc-link">Efficiency</a>
+        <a href="#citation" class="toc-link">Citation</a>
+      </nav>
+
+      <section class="hero" id="overview">
+        <div class="hero-copy">
+          <p class="eyebrow">MICCAI 2026 submission · Weakly supervised histopathology segmentation</p>
+          <h1 class="hero-title">Single-Stage Hierarchical Rectification for Weakly Supervised Histopathology Segmentation</h1>
+          <div class="hero-meta">
+            <span>
+              <strong>Duc T. Nguyen</strong><sup>1,2,3</sup> · Hoang-Long Nguyen<sup>1,2,3</sup> · Thanh-Ha Do<sup>4</sup> · Huy-Hieu Pham<sup>1,2,3</sup>
+            </span>
+            <span>
+              <sup>1</sup>College of Engineering &amp; Computer Science, VinUniversity ·
+              <sup>2</sup>VinUni-Illinois Smart Health Center ·
+              <sup>3</sup>Computer Vision and Medical AI Lab ·
+              <sup>4</sup>Posts and Telecommunications Institute of Technology
+            </span>
+          </div>
+          <div class="hero-actions">
+            <a href="https://github.com/trongduc-nguyen/SSHR" class="btn btn-primary" target="_blank" rel="noopener noreferrer"><i class="fab fa-github"></i> Code</a>
+            <a href="#method" class="btn btn-secondary"><i class="fas fa-diagram-project"></i> Method</a>
+            <a href="#results" class="btn btn-secondary"><i class="fas fa-chart-line"></i> Results</a>
+          </div>
+        </div>
+
+        <aside class="hero-tldr" aria-label="TLDR">
+          <h2>TL;DR</h2>
+          <ul>
+            <li>SSHR generates high-fidelity CAMs in a single training loop.</li>
+            <li>Hierarchical rectification uses deep semantics to suppress local false positives in shallow features.</li>
+            <li>It outperforms multi-stage pathology WSSS pipelines while reducing training time by 2.23x to 5.42x.</li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="main-figure" aria-label="Main figure">
+        <article class="paper-card main-figure-card">
+          <img src="assets/images/framework.png" alt="Overview of the Single-Stage Hierarchical Rectification framework" loading="eager" />
+          <p class="figure-caption"><strong>SSHR overview.</strong> Intermediate low-level features are rectified by deep global context and spatial homogenization before CAM formation, producing segmentation-ready activation maps without offline pseudo-mask refinement or second-stage retraining.</p>
+          <div class="abstract-reveal">
+            <h2>Abstract</h2>
+            <p>Existing weakly supervised semantic segmentation methods in computational pathology rely on a multi-stage paradigm: class activation map generation, offline pseudo-mask refinement, and fully supervised retraining. While established, this decoupled approach incurs high computational training costs and suffers from error propagation, where local texture biases in shallow CNN layers generate false-positive artifacts that subsequent refinement steps often fail to correct. We propose Single-Stage Hierarchical Rectification (SSHR), a framework that proactively purifies intermediate feature representations during the forward pass. SSHR introduces a Hierarchical Feature Rectification Module that uses deep global semantic context to filter local anomalies in shallow layers, generating high-fidelity activation maps directly within a single training loop. Experiments on LUAD-HistoSeg and BCSS show that SSHR outperforms state-of-the-art multi-stage methods while reducing training duration by 2 to 5 times.</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="method">
+        <div class="section-header">
+          <h2>Method</h2>
+          <p>SSHR internalizes CAM purification instead of correcting noisy masks after generation.</p>
+        </div>
+        <div class="grid grid-3">
+          <article class="feature-card">
+            <h3>Global Semantic Rectification</h3>
+            <p>Deep features encode global tissue context. SSHR projects this context into channel-wise gates that attenuate low-level feature channels likely to activate absent or implausible tissue classes.</p>
+          </article>
+          <article class="feature-card">
+            <h3>Contextual Homogenization</h3>
+            <p>A lightweight large-kernel depthwise convolution suppresses isolated spatial outliers by aligning each location with its broader tissue neighborhood.</p>
+          </article>
+          <article class="feature-card">
+            <h3>Stable Residual Integration</h3>
+            <p>Zero-initialized learnable residual scales let the model start as the pretrained backbone and gradually learn how strongly to apply semantic and spatial rectification.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="contributions">
+        <div class="section-header">
+          <h2>Key Contributions</h2>
+          <p>A compact single-stage framework designed specifically for pathology WSSS.</p>
+        </div>
+        <div class="grid grid-3">
+          <article class="feature-card">
+            <div class="metric-badge">01</div>
+            <h3>Single-stage pathology WSSS</h3>
+            <p>SSHR removes offline mask generation and repeated segmentation retraining, avoiding a common source of error amplification in multi-stage pipelines.</p>
+          </article>
+          <article class="feature-card">
+            <div class="metric-badge">02</div>
+            <h3>Hierarchical Feature Rectification</h3>
+            <p>The HFRM combines global semantic filtering with spatial homogenization to purify CAMs during the forward pass.</p>
+          </article>
+          <article class="feature-card">
+            <div class="metric-badge">03</div>
+            <h3>Accuracy and efficiency</h3>
+            <p>SSHR reaches state-of-the-art results on LUAD-HistoSeg and BCSS while substantially reducing total training time.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="results">
+        <div class="section-header">
+          <h2>State-of-the-Art Results</h2>
+          <p>SSHR achieves the best single-stage performance on both benchmark datasets.</p>
+        </div>
+        <div class="results-grid">
+          <article class="score-card standout">
+            <span class="score-label">LUAD-HistoSeg</span>
+            <strong>77.93%</strong>
+            <span>mIoU · 87.54% mDice</span>
+          </article>
+          <article class="score-card standout">
+            <span class="score-label">BCSS</span>
+            <strong>71.82%</strong>
+            <span>mIoU · 83.52% mDice</span>
+          </article>
+          <article class="score-card">
+            <span class="score-label">Training time</span>
+            <strong>2.23x-5.42x</strong>
+            <span>faster than multi-stage pipelines</span>
+          </article>
+          <article class="score-card">
+            <span class="score-label">Latency</span>
+            <strong>9.10 ms</strong>
+            <span>per patch on LUAD-HistoSeg</span>
+          </article>
+        </div>
+
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr><th>Dataset</th><th>Best multi-stage baseline</th><th>Baseline mIoU</th><th>SSHR mIoU</th><th>SSHR mDice</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>LUAD-HistoSeg</td><td>ESFAN / ARML</td><td>76.83 / 76.55</td><td><strong>77.93</strong></td><td><strong>87.54</strong></td></tr>
+              <tr><td>BCSS</td><td>ESFAN / WAWEHIS</td><td>70.59 / 70.08</td><td><strong>71.82</strong></td><td><strong>83.52</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section figure-section" id="qualitative">
+        <div class="section-header">
+          <h2>Qualitative Comparison</h2>
+          <p>Internal hierarchical rectification improves boundary adherence and reduces CAM coarseness.</p>
+        </div>
+        <article class="paper-card">
+          <img src="assets/images/qualitative.png" alt="Qualitative comparison of SSHR and prior WSSS methods" loading="lazy" />
+          <p class="figure-caption"><strong>Segmentation examples on LUAD-HistoSeg.</strong> SSHR produces masks that better follow tissue morphology compared with representative multi-stage methods.</p>
+        </article>
+      </section>
+
+      <section class="section" id="ablation">
+        <div class="section-header">
+          <h2>Ablation Study</h2>
+          <p>Global semantic rectification and contextual homogenization are complementary.</p>
+        </div>
+        <div class="table-card compact-table">
+          <table>
+            <thead>
+              <tr><th>Configuration</th><th>Kernel</th><th>LUAD mIoU</th><th>BCSS mIoU</th><th>LUAD mDice</th><th>BCSS mDice</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Baseline</td><td>-</td><td>72.12</td><td>63.54</td><td>82.83</td><td>72.02</td></tr>
+              <tr><td>+ GSR</td><td>-</td><td>75.84</td><td>68.31</td><td>84.41</td><td>78.65</td></tr>
+              <tr><td>+ CH</td><td>15</td><td>75.21</td><td>66.95</td><td>84.88</td><td>77.42</td></tr>
+              <tr><td>GSR + CH</td><td>7</td><td>76.55</td><td>70.42</td><td>86.26</td><td>79.08</td></tr>
+              <tr class="best-row"><td>GSR + CH</td><td>15</td><td>77.93</td><td>71.82</td><td>87.54</td><td>83.52</td></tr>
+              <tr><td>GSR + CH</td><td>21</td><td>75.41</td><td>69.15</td><td>84.02</td><td>78.88</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="efficiency">
+        <div class="section-header">
+          <h2>Efficient by Design</h2>
+          <p>By bypassing pseudo-mask generation and segmentation retraining, SSHR reduces both training time and inference latency.</p>
+        </div>
+        <div class="grid grid-3">
+          <article class="feature-card"><h3>No offline pseudo-mask stage</h3><p>CAM refinement happens inside the model, removing expensive post-processing loops.</p></article>
+          <article class="feature-card"><h3>No second-stage retraining</h3><p>SSHR avoids the unstable dependency on a separate segmentation backbone trained on noisy pseudo labels.</p></article>
+          <article class="feature-card"><h3>Fast inference</h3><p>The reported latency is 9.10 ms per patch, faster than all compared multi-stage competitors.</p></article>
+        </div>
+      </section>
+
+      <section class="section citation" id="citation">
+        <div class="section-header">
+          <h2>Citation</h2>
+          <p>Please cite the paper if this project is useful for your research.</p>
+        </div>
+        <pre><code>@inproceedings{nguyen2026sshr,
+  title={Single-Stage Hierarchical Rectification for Weakly Supervised Histopathology Segmentation},
+  author={Nguyen, Duc T. and Nguyen, Hoang-Long and Do, Thanh-Ha and Pham, Huy-Hieu},
+  booktitle={MICCAI},
+  year={2026}
+}</code></pre>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Single-Stage Hierarchical Rectification for Weakly Supervised Histopathology Segmentation.</p>
+      <a href="mailto:hieu.ph@vinuni.edu.vn"><i class="fas fa-envelope"></i> Contact</a>
+    </footer>
+  </body>
+</html>
