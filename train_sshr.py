@@ -13,7 +13,7 @@ from torchvision import transforms
 from PIL import Image
 from tool import pyutils, torchutils
 from tool.GenDataset import Stage1_TrainDataset
-from tool.infer_fun import infer, get_mask
+from tool.infer_fun import infer
 import time
 import random
 import matplotlib.pyplot as plt
@@ -50,10 +50,21 @@ def set_seed(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    cudnn.benchmark = False
-    cudnn.deterministic = True
-    torch.backends.cuda.matmul.allow_tf32 = False
-    torch.backends.cudnn.allow_tf32 = False
+    cudnn.benchmark = True
+    cudnn.deterministic = False
+    try:
+        torch.backends.cuda.matmul.fp32_precision = 'tf32'
+        torch.backends.cudnn.conv.fp32_precision = 'tf32'
+    except AttributeError:
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+
+def get_amp_dtype(args):
+    if args.amp_dtype == 'bf16':
+        return torch.bfloat16
+    if args.amp_dtype == 'fp16':
+        return torch.float16
+    return None
 
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
@@ -153,12 +164,11 @@ def train_phase(args):
 
     set_seed(args.seed)
     model = getattr(importlib.import_module(args.network), 'Net')(n_class=args.n_class).cuda()
-    model_cam = getattr(importlib.import_module(args.network), 'Net_CAM')(n_class=args.n_class).cuda()
-    model_cam.eval()
-    
-
 
     loss_weights = None
+    amp_dtype = get_amp_dtype(args)
+    use_amp = amp_dtype is not None
+    scaler = torch.amp.GradScaler('cuda', enabled=(args.amp_dtype == 'fp16'))
     
     transform_train = transforms.Compose([transforms.ToTensor()])
     transform_eval = transforms.Compose([transforms.ToTensor()])
@@ -210,24 +220,25 @@ def train_phase(args):
 
         
         for iter, (filename, img, label) in enumerate(train_data_loader):
-            img, label= img.cuda(), label.cuda()
+            img = img.cuda(non_blocking=True)
+            label = label.cuda(non_blocking=True)
             
-            # 1. FORWARD RESNET
-            out_56, out_28_1, out_28_2, out_deep, y_deep, cam_56, cam_28_1, cam_28_2, cam_deep, feat_56 = model(img)            
+            with torch.autocast(device_type='cuda', dtype=amp_dtype, enabled=use_amp):
+                out_56, out_28_1, out_28_2, out_deep, y_deep, cam_56, cam_28_1, cam_28_2, cam_deep, feat_56 = model(img)
+                loss_w_56, loss_w_28_1, loss_w_28_2, loss_w_deep = get_loss_weights(args)
+                loss_cls = (
+                    loss_w_56 * F.multilabel_soft_margin_loss(out_56, label, weight=loss_weights)
+                    + loss_w_28_1 * F.multilabel_soft_margin_loss(out_28_1, label, weight=loss_weights)
+                    + loss_w_28_2 * F.multilabel_soft_margin_loss(out_28_2, label, weight=loss_weights)
+                    + loss_w_deep * F.multilabel_soft_margin_loss(out_deep, label, weight=loss_weights)
+                )
+                loss = loss_cls
             
-
-            loss_w_56, loss_w_28_1, loss_w_28_2, loss_w_deep = get_loss_weights(args)
-            loss_cls = (loss_w_56 * F.multilabel_soft_margin_loss(out_56, label, weight=loss_weights) + \
-                        loss_w_28_1 * F.multilabel_soft_margin_loss(out_28_1, label, weight=loss_weights) + \
-                        loss_w_28_2 * F.multilabel_soft_margin_loss(out_28_2, label, weight=loss_weights) + \
-                        loss_w_deep * F.multilabel_soft_margin_loss(out_deep, label, weight=loss_weights)) 
-            
-            loss_adapt_val = torch.tensor(0.0).cuda()
-            loss = loss_cls
+            loss_adapt_val = torch.zeros((), device=img.device)
             
             # Metrics
-            prob = y_deep.cpu().data.numpy()
-            gt = label.cpu().data.numpy()
+            prob = y_deep.detach().float().cpu().numpy()
+            gt = label.detach().float().cpu().numpy()
             for num, one in enumerate(prob):
                 ep_count += 1
                 pass_cls = np.where(one > args.train_cls_thr)[0]
@@ -238,8 +249,13 @@ def train_phase(args):
             avg_meter.add({'loss_cls': loss_cls.item(), 'loss_adapt': loss_adapt_val.item()})
             
             optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            if scaler.is_enabled():
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                optimizer.step()
             
             if (optimizer.global_step) % 100 == 0 and (optimizer.global_step) != 0:
                 timer.update_progress(optimizer.global_step / max_step)
@@ -256,10 +272,11 @@ def train_phase(args):
         checkpoint_path = get_checkpoint_path(args)
         if args.save_checkpoints:
             torch.save(model.state_dict(), checkpoint_path)
-            if args.save_last_k_checkpoints > 0 and (ep + 1) > args.max_epoches - args.save_last_k_checkpoints:
-                epoch_checkpoint_path = os.path.join(args.save_folder, f"stage1_epoch_{ep + 1:04d}.pth")
-                torch.save(model.state_dict(), epoch_checkpoint_path)
-        if args.eval_every > 0 and ((ep + 1) % args.eval_every == 0):
+        if args.save_last_k_checkpoints > 0 and (ep + 1) > args.max_epoches - args.save_last_k_checkpoints:
+            epoch_checkpoint_path = os.path.join(args.save_folder, f"stage1_epoch_{ep + 1:04d}.pth")
+            torch.save(model.state_dict(), epoch_checkpoint_path)
+        do_eval = args.eval_every > 0 and ((ep + 1) % args.eval_every == 0)
+        if do_eval:
             state_dict = None if args.save_checkpoints else model.state_dict()
             val_score = test_phase(args, dataroot=args.valroot, split_name='val', checkpoint_path=checkpoint_path, state_dict=state_dict)
             test_score = test_phase(args, dataroot=args.testroot, split_name='test', checkpoint_path=checkpoint_path, state_dict=state_dict)
@@ -300,7 +317,7 @@ def test_phase(args, dataroot=None, split_name='test', checkpoint_path=None, sta
 if __name__ == '__main__': 
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=20, type=int)
-    parser.add_argument("--max_epoches", default=21, type=int)
+    parser.add_argument("--max_epoches", default=24, type=int)
     parser.add_argument("--network", default="network.resnet38_cls", type=str)
     parser.add_argument("--lr", default=0.01, type=float)
     parser.add_argument("--num_workers", default=8, type=int)
@@ -318,6 +335,7 @@ if __name__ == '__main__':
     parser.add_argument("--checkpoint_name", default='stage1_last.pth', type=str)
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--eval_every", default=1, type=int)
+    parser.add_argument("--evaluate_only", "--evaluate-only", action="store_true")
     parser.add_argument("--infer_thr", default=None, type=float)
     parser.add_argument("--cam_w_28_1", default=0.6, type=float)
     parser.add_argument("--cam_w_28_2", default=0.2, type=float)
@@ -327,12 +345,16 @@ if __name__ == '__main__':
     parser.add_argument("--loss_w_28_2", default=0.25, type=float)
     parser.add_argument("--loss_w_deep", default=0.5, type=float)
     parser.add_argument("--train_cls_thr", default=0.2, type=float)
+    parser.add_argument("--amp_dtype", "--amp-dtype", default="bf16", choices=["none", "bf16", "fp16"], type=str)
     parser.add_argument("--save_checkpoints", "--save-checkpoints", dest="save_checkpoints", action="store_true", default=True)
     parser.add_argument("--no-save_checkpoints", "--no-save-checkpoints", dest="save_checkpoints", action="store_false")
     parser.add_argument("--save_last_k_checkpoints", "--save-last-k-checkpoints", default=5, type=int)
     args = parser.parse_args()
-    os.makedirs(args.save_folder, exist_ok=True)
-    
-    start_time = time.time()
-    train_phase(args)
-    print(f"Total Training Time: {time.time() - start_time - time_test:.2f}s")
+    if args.evaluate_only:
+        set_seed(args.seed)
+        test_phase(args, dataroot=args.testroot, split_name="test_tta", checkpoint_path=args.weights)
+    else:
+        os.makedirs(args.save_folder, exist_ok=True)
+        start_time = time.time()
+        train_phase(args)
+        print(f"Total Training Time: {time.time() - start_time - time_test:.2f}s")
