@@ -46,7 +46,7 @@ SSHR/
 └── checkpoints/               # training checkpoints, ignored by git
 ```
 
-**SSHR Pretrained Weights:** Download the pretrained model weights for SSHR on LUAD-HistoSeg and BCSS from [https://drive.google.com/drive/folders/1lNQHBhEbujqEgdLQDjCbaanPDejmbdae?usp=drive_link](GOOGLE_DRIVE_LINK).
+**SSHR Pretrained Weights:** Download the pretrained model weights for SSHR on LUAD-HistoSeg and BCSS from [this Google Drive link](https://drive.google.com/drive/folders/1lNQHBhEbujqEgdLQDjCbaanPDejmbdae?usp=drive_link).
 
 ## Usage
 
