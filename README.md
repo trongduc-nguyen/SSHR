@@ -130,6 +130,22 @@ python train_sshr.py \
   --amp-dtype bf16
 ```
 
+## Citation
+
+If you find this work useful in your research, please cite:
+
+```bibtex
+@InProceedings{SSHR_MICCAI2026,
+    author    = {Nguyen, Trong Duc and Nguyen, Hoang Long and Do, Thanh Ha and Pham, Huy Hieu},
+    title     = {Single-Stage Hierarchical Rectification for Weakly Supervised Histopathology Segmentation},
+    booktitle = {Medical Image Computing and Computer Assisted Intervention -- MICCAI 2026},
+    year      = {2026},
+    publisher = {Springer Nature Switzerland},
+    volume    = {LNCS 16891},
+    month     = {September}
+}
+```
+
 ## Acknowledgement
 
 We thank the authors of [ESFAN](https://github.com/OceanPetal/ESFAN), whose codebase provided a valuable foundation for this repository.
